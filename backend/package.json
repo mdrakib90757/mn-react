@@ -1,0 +1,17 @@
+{
+  "name": "meeting-notes-ai-backend",
+  "version": "1.0.0",
+  "description": "Streaming STT and LLM meeting intelligence backend",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test:wav": "node scripts/send-wav.js",
+    "test:llm": "node scripts/test-llm.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ws": "^8.18.0"
+  }
+}
+

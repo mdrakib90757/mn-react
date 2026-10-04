@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="bn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>মাইক্রোফোন অনুমতি - Meeting Notes AI</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --card: #161b22;
+        --border: #30363d;
+        --text: #e6edf3;
+        --text-sub: #8b949e;
+        --accent: #238636;
+        --accent-hover: #2ea043;
+        --blue: #58a6ff;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f6f8fa;
+          --card: #ffffff;
+          --border: #d0d7de;
+          --text: #1f2328;
+          --text-sub: #656d76;
+          --accent: #1f883d;
+          --accent-hover: #1a7f37;
+          --blue: #0969da;
+        }
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 32px;
+        max-width: 440px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      }
+      .icon-circle {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: rgba(88, 166, 255, 0.15);
+        color: var(--blue);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 12px;
+        font-weight: 600;
+        line-height: 1.5;
+      }
+      p {
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--text-sub);
+        margin: 0 0 24px;
+      }
+      button {
+        background: var(--accent);
+        color: #ffffff;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        width: 100%;
+      }
+      button:hover {
+        background: var(--accent-hover);
+      }
+      .status {
+        margin-top: 16px;
+        font-size: 14px;
+        display: none;
+      }
+      .status.success {
+        display: block;
+        color: #3fb950;
+      }
+      .status.error {
+        display: block;
+        color: #f85149;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon-circle">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" x2="12" y1="19" y2="22"/>
+        </svg>
+      </div>
+      <h1>মাইক্রোফোন অ্যাক্সেসের অনুমতি দিন</h1>
+      <p>
+        মিটিংয়ে আপনার নিজের কথা ট্রান্সক্রিপ্ট ও এআই বিশ্লেষণের জন্য অন্তর্ভুক্ত করতে ব্রাউজারের মাইক্রোফোন অনুমতি প্রয়োজন।
+      </p>
+      <button id="grant-btn">অনুমতি দিন (Allow Microphone)</button>
+      <div id="status-box" class="status"></div>
+    </div>
+    <script src="permission.js"></script>
+  </body>
+</html>
+

@@ -1,0 +1,15 @@
+{
+  "name": "meeting-notes-ai",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": { "dev": "vite build --watch", "build": "vite build" },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.0.0",
+    "@fontsource-variable/noto-sans-bengali": "^5.0.0",
+    "lucide-react": "^0.400.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": { "@vitejs/plugin-react": "^4.3.0", "vite": "^5.4.0" }
+}

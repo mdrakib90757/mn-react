@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Meeting Notes AI",
+  "version": "0.3.0",
+  "description": "মিটিংয়ের কথা থেকে লাইভ নোট ও প্রশ্ন",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "tabCapture",
+    "offscreen",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": { "default_title": "Meeting Notes AI খুলুন" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "background": { "service_worker": "background.js" }
+}
