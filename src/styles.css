@@ -788,6 +788,26 @@ button:active {
   border: 1px solid var(--accent-border);
 }
 
+.note-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.note-copy-btn:hover {
+  color: var(--accent);
+  background: var(--surface-subtle);
+  border-color: var(--line);
+}
+
 .note-body {
   margin: 0;
   font-size: 13.5px;
@@ -1024,5 +1044,48 @@ button:active {
   opacity: 1;
   background: rgba(0, 0, 0, 0.08);
 }
+
+/* Language Selector Segmented Bar */
+.lang-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  margin-bottom: 10px;
+}
+
+.lang-btn {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: transparent;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.lang-btn:hover {
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+
+.lang-btn.active {
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--accent-border);
+}
+
 
 

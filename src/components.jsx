@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Copy, Pin, X, Plus, Check, Radio, Sparkles, FileText, Quote } from "lucide-react";
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const fmt = (ts) => new Date(ts).toLocaleTimeString("bn-BD", { hour: "2-digit", minute: "2-digit" });
+const fmt = (ts) => new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
 export function Highlight({ text, topics }) {
   if (!topics || !topics.length) return text;
@@ -36,7 +36,7 @@ export function Topics({ topics, setTopics }) {
   };
 
   return (
-    <section className="topics" aria-label="ট্র্যাক করা বিষয়সমূহ">
+    <section className="topics" aria-label="Tracked Topics">
       <div className="chips">
         {topics.map((t) => (
           <span className="chip" key={t}>
@@ -44,8 +44,8 @@ export function Topics({ topics, setTopics }) {
             <button
               type="button"
               className="chip-remove"
-              aria-label={`${t} বাদ দিন`}
-              title={`${t} সরান`}
+              aria-label={`Remove topic ${t}`}
+              title={`Remove ${t}`}
               onClick={() => setTopics(topics.filter((x) => x !== t))}
             >
               <X size={11} strokeWidth={2.5} />
@@ -60,15 +60,15 @@ export function Topics({ topics, setTopics }) {
             value={val}
             onChange={(e) => setVal(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={topics.length ? "+ নতুন বিষয়..." : "যে বিষয় জানতে চান লিখুন..."}
-            aria-label="নতুন বিষয়"
+            placeholder={topics.length ? "+ Add topic..." : "Track specific topics..."}
+            aria-label="New topic"
           />
           {val.trim() && (
             <button
               type="button"
               className="chip-add-btn"
-              aria-label="বিষয় যোগ করুন"
-              title="বিষয় যোগ করুন"
+              aria-label="Add topic"
+              title="Add topic"
               onClick={add}
             >
               <Plus size={12} strokeWidth={2.5} />
@@ -97,8 +97,8 @@ export function Transcript({ items, topics, running }) {
     return (
       <Empty
         icon={Radio}
-        title="এখনো কিছু শোনা হয়নি"
-        body={running ? "অংশগ্রহণকারীরা কথা বললে এখানে রিয়েল-টাইমে ট্রান্সক্রিপ্ট দেখা যাবে।" : "মিটিংয়ের ট্যাবে গিয়ে নিচে “শুরু করুন” চাপুন।"}
+        title="No Audio Captured Yet"
+        body={running ? "Live speech will appear here in real-time." : "Navigate to your meeting/video tab and click “Start Recording” below."}
       />
     );
   }
@@ -122,10 +122,14 @@ export function Transcript({ items, topics, running }) {
 }
 
 const TYPE_CONFIG = {
-  "স্পষ্টীকরণ": { class: "t-clarify", label: "স্পষ্টীকরণ" },
-  "গভীরে": { class: "t-deep", label: "গভীরে পর্যালোচনা" },
-  "ঝুঁকি": { class: "t-risk", label: "সম্ভাব্য ঝুঁকি" },
-  "অ্যাকশন": { class: "t-action", label: "করণীয় পদক্ষেপ" },
+  "Clarification": { class: "t-clarify", label: "Clarification" },
+  "স্পষ্টীকরণ": { class: "t-clarify", label: "Clarification" },
+  "Deep Dive": { class: "t-deep", label: "Deep Dive" },
+  "গভীরে": { class: "t-deep", label: "Deep Dive" },
+  "Risk": { class: "t-risk", label: "Risk Analysis" },
+  "ঝুঁকি": { class: "t-risk", label: "Risk Analysis" },
+  "Action Item": { class: "t-action", label: "Action Item" },
+  "অ্যাকশন": { class: "t-action", label: "Action Item" },
 };
 
 export function Questions({ items, onDismiss, onPin }) {
@@ -134,8 +138,8 @@ export function Questions({ items, onDismiss, onPin }) {
     return (
       <Empty
         icon={Sparkles}
-        title="প্রশ্ন এখনো নেই"
-        body="স্পিকার কোনো বিষয় অস্পষ্ট রাখলে বা আলোচনার সুযোগ থাকলে এআই এখানে উপযুক্ত প্রশ্ন প্রস্তাব করবে।"
+        title="No Questions Yet"
+        body="AI will suggest high-value clarification, risk, and action questions as discussion unfolds."
       />
     );
   }
@@ -151,22 +155,22 @@ export function Questions({ items, onDismiss, onPin }) {
   return (
     <ul className="cards">
       {sorted.map((q) => {
-        const kind = q.kind || q.type;
-        const typeClass = TYPE_CONFIG[kind]?.class || "t-clarify";
+        const kind = q.kind || q.type || "Clarification";
+        const typeMeta = TYPE_CONFIG[kind] || { class: "t-clarify", label: kind };
         const isCopied = copied === q.id;
 
         return (
-          <li key={q.id} className={`card question-card ${typeClass} ${q.pinned ? "pinned" : ""}`}>
+          <li key={q.id} className={`card question-card ${typeMeta.class} ${q.pinned ? "pinned" : ""}`}>
             <div className="card-head">
               <span className="card-badge">
                 <span className="badge-dot" aria-hidden="true" />
-                <span className="badge-text">{kind}</span>
+                <span className="badge-text">{typeMeta.label}</span>
               </span>
               <div className="card-head-meta">
                 {q.pinned && (
-                  <span className="pinned-indicator" title="সংরক্ষিত প্রশ্ন">
+                  <span className="pinned-indicator" title="Pinned Question">
                     <Pin size={11} fill="currentColor" />
-                    <span>পিনড</span>
+                    <span>Pinned</span>
                   </span>
                 )}
                 <time dateTime={new Date(q.ts).toISOString()}>{fmt(q.ts)}</time>
@@ -181,7 +185,7 @@ export function Questions({ items, onDismiss, onPin }) {
               <blockquote className="quote-box">
                 <Quote size={12} className="quote-icon" aria-hidden="true" />
                 <div className="quote-content">
-                  <span className="quote-label">প্রসঙ্গ:</span>
+                  <span className="quote-label">Context:</span>
                   <span className="quote-text">“{q.quote}”</span>
                 </div>
               </blockquote>
@@ -192,10 +196,10 @@ export function Questions({ items, onDismiss, onPin }) {
                 type="button"
                 className={`btn-action ${isCopied ? "btn-success" : ""}`}
                 onClick={() => copy(q)}
-                aria-label={isCopied ? "প্রশ্নটি কপি হয়েছে" : "প্রশ্নটি কপি করুন"}
+                aria-label={isCopied ? "Question copied" : "Copy question"}
               >
                 {isCopied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
-                <span>{isCopied ? "কপি হয়েছে" : "কপি"}</span>
+                <span>{isCopied ? "Copied" : "Copy"}</span>
               </button>
 
               <button
@@ -203,20 +207,20 @@ export function Questions({ items, onDismiss, onPin }) {
                 className={`btn-action ${q.pinned ? "btn-pinned" : ""}`}
                 onClick={() => onPin(q.id)}
                 aria-pressed={!!q.pinned}
-                aria-label={q.pinned ? "পিন সরান" : "পরে করার জন্য পিন করুন"}
+                aria-label={q.pinned ? "Unpin question" : "Pin question"}
               >
                 <Pin size={13} fill={q.pinned ? "currentColor" : "none"} />
-                <span>{q.pinned ? "পিন সরানো" : "পরে করব"}</span>
+                <span>{q.pinned ? "Unpin" : "Pin"}</span>
               </button>
 
               <button
                 type="button"
                 className="btn-action btn-dismiss"
                 onClick={() => onDismiss(q.id)}
-                aria-label="প্রশ্নটি বাদ দিন"
+                aria-label="Dismiss question"
               >
                 <X size={13} />
-                <span>বাদ দিন</span>
+                <span>Dismiss</span>
               </button>
             </div>
           </li>
@@ -227,32 +231,54 @@ export function Questions({ items, onDismiss, onPin }) {
 }
 
 export function Notes({ items, topics }) {
+  const [copied, setCopied] = useState(null);
+
   if (!items.length) {
     return (
       <Empty
         icon={FileText}
-        title="নোট এখনো নেই"
-        body="আপনার ট্র্যাক করা বিষয়গুলো নিয়ে আলোচনা হলে গুরুত্বপূর্ণ অংশগুলো স্বয়ংক্রিয়ভাবে এখানে জমা হবে।"
+        title="No Notes Yet"
+        body="Key decisions, takeaways, and tracked topics will be summarized here automatically."
       />
     );
   }
 
+  const copy = (n) => {
+    navigator.clipboard.writeText(n.note);
+    setCopied(n.id);
+    setTimeout(() => setCopied(null), 1400);
+  };
+
   return (
     <ul className="cards">
-      {[...items].reverse().map((n) => (
-        <li key={n.id} className="card note-card">
-          <div className="card-head">
-            <span className="card-badge note-badge">
-              <span className="badge-dot" aria-hidden="true" />
-              <span className="badge-text">মূল সারাংশ</span>
-            </span>
-            <time dateTime={new Date(n.ts).toISOString()}>{fmt(n.ts)}</time>
-          </div>
-          <p className="note-body">
-            <Highlight text={n.note} topics={topics} />
-          </p>
-        </li>
-      ))}
+      {[...items].reverse().map((n) => {
+        const isCopied = copied === n.id;
+        return (
+          <li key={n.id} className="card note-card">
+            <div className="card-head">
+              <span className="card-badge note-badge">
+                <span className="badge-dot" aria-hidden="true" />
+                <span className="badge-text">Takeaway</span>
+              </span>
+              <div className="card-head-meta">
+                <button
+                  type="button"
+                  className="note-copy-btn"
+                  onClick={() => copy(n)}
+                  title="Copy note"
+                  aria-label="Copy note"
+                >
+                  {isCopied ? <Check size={12} strokeWidth={2.5} /> : <Copy size={12} />}
+                </button>
+                <time dateTime={new Date(n.ts).toISOString()}>{fmt(n.ts)}</time>
+              </div>
+            </div>
+            <p className="note-body">
+              <Highlight text={n.note} topics={topics} />
+            </p>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -268,4 +294,3 @@ function Empty({ icon: Icon, title, body }) {
     </div>
   );
 }
-

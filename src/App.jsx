@@ -9,6 +9,7 @@ import {
   startRecording,
   stopRecording,
   requestMicPermission,
+  updateLiveConfig,
 } from "./feed.js";
 
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
@@ -18,10 +19,17 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [tab, setTab] = useState("transcript");
-  const [topics, setTopics] = useState(() => load("topics", ["ডেডলাইন", "বাজেট"]));
+  const [language, setLanguage] = useState(() => load("language", "bn"));
+  const [topics, setTopics] = useState(() => load("topics", ["Deadline", "Budget"]));
   const [data, setData] = useState({ transcript: [], questions: [], notes: [] });
   const [error, setError] = useState(null);
   const [warning, setWarning] = useState(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("language", JSON.stringify(language));
+    } catch {}
+  }, [language]);
 
   useEffect(() => {
     try {
@@ -29,11 +37,22 @@ export default function App() {
     } catch {}
   }, [topics]);
 
+  // Dynamically sync language and topics to active WebSocket session
+  useEffect(() => {
+    if (running) {
+      updateLiveConfig({
+        language,
+        topics,
+        questionKinds: ["Clarification", "Deep Dive", "Risk", "Action Item"],
+      });
+    }
+  }, [language, topics, running]);
+
   const emit = useCallback((e) => {
     if (!e) return;
 
     if (e.type === "error" || e.type === "BACKEND_ERROR") {
-      setError(e.error || e.message || "একটি সমস্যা দেখা দিয়েছে।");
+      setError(e.error || e.message || "An unexpected error occurred.");
       return;
     }
 
@@ -43,7 +62,7 @@ export default function App() {
     }
 
     if (e.type === "TAB_ENDED") {
-      setWarning(e.warning || "মিটিং ট্যাবটি বন্ধ হয়েছে।");
+      setWarning(e.warning || "Meeting tab was closed.");
       setRunning(false);
       return;
     }
@@ -65,7 +84,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const unsub = subscribeLive(emit);
+    const unsub = subscribeLive((e) => {
+      if (e?.type === "TAB_ENDED") {
+        setRunning(false);
+      }
+      emit(e);
+    });
     return () => unsub();
   }, [emit]);
 
@@ -90,19 +114,20 @@ export default function App() {
       // 1. Fail-fast check for backend WebSocket server
       const isAlive = await checkBackendHealth("ws://localhost:8080", 1500);
       if (!isAlive) {
-        setError("সার্ভার চালু নেই! টার্মিনালে `node server.js` চালু করুন।");
+        setError("Backend server is not running! Run `node server.js` in terminal.");
         return;
       }
 
       // 2. Start tab + mic recording
       try {
         await startRecording({
+          language,
           topics,
-          questionKinds: ["স্পষ্টীকরণ", "গভীরে", "ঝুঁকি", "অ্যাকশন"],
+          questionKinds: ["Clarification", "Deep Dive", "Risk", "Action Item"],
         });
         setRunning(true);
       } catch (err) {
-        setError(err.message || "রেকর্ডিং শুরু করা যায়নি। মিটিং ট্যাবে গিয়ে চেষ্টা করুন।");
+        setError(err.message || "Could not start recording. Please select a valid web tab.");
         setRunning(false);
       }
     }
@@ -112,9 +137,9 @@ export default function App() {
   const reset = () => { setData({ transcript: [], questions: [], notes: [] }); setElapsed(0); setError(null); setWarning(null); };
 
   const tabs = [
-    { id: "transcript", label: "কথোপকথন", n: data.transcript.length },
-    { id: "questions", label: "প্রশ্ন", n: data.questions.length },
-    { id: "notes", label: "নোট", n: data.notes.length },
+    { id: "transcript", label: "Transcript", n: data.transcript.length },
+    { id: "questions", label: "Questions", n: data.questions.length },
+    { id: "notes", label: "Notes", n: data.notes.length },
   ];
 
   return (
@@ -142,14 +167,14 @@ export default function App() {
                 <span className="eq-bar eq-2" />
                 <span className="eq-bar eq-3" />
               </span>
-              <span className="status-label">শুনছে</span>
+              <span className="status-label">Listening</span>
               <span className="status-dot-sep">·</span>
               <span className="status-clock">{clock(elapsed)}</span>
             </div>
           ) : (
             <div className="status-idle-badge">
               <span className="status-idle-dot" aria-hidden="true" />
-              <span className="status-label">বন্ধ</span>
+              <span className="status-label">Idle</span>
             </div>
           )}
         </div>
@@ -161,7 +186,7 @@ export default function App() {
             <AlertCircle size={14} className="alert-icon" />
             <span>{error}</span>
           </div>
-          <button onClick={() => setError(null)} aria-label="বন্ধ করুন" className="alert-close">
+          <button onClick={() => setError(null)} aria-label="Dismiss error" className="alert-close">
             <X size={13} />
           </button>
         </div>
@@ -174,21 +199,49 @@ export default function App() {
             <span>{warning}</span>
           </div>
           <div className="alert-actions">
-            {warning.includes("মাইক্রোফোন") && (
+            {warning.toLowerCase().includes("mic") && (
               <button onClick={requestMicPermission} className="alert-action-btn">
-                অনুমতি দিন
+                Enable Mic
               </button>
             )}
-            <button onClick={() => setWarning(null)} aria-label="বন্ধ করুন" className="alert-close">
+            <button onClick={() => setWarning(null)} aria-label="Dismiss warning" className="alert-close">
               <X size={13} />
             </button>
           </div>
         </div>
       )}
 
+      {/* Modern Language Selector Segmented Bar */}
+      <div className="lang-selector-bar" role="group" aria-label="Language Mode">
+        <button
+          type="button"
+          className={`lang-btn ${language === "bn" ? "active" : ""}`}
+          onClick={() => setLanguage("bn")}
+          title="Bengali (বাংলা)"
+        >
+          🇧🇩 Bengali
+        </button>
+        <button
+          type="button"
+          className={`lang-btn ${language === "en" ? "active" : ""}`}
+          onClick={() => setLanguage("en")}
+          title="English"
+        >
+          🇺🇸 English
+        </button>
+        <button
+          type="button"
+          className={`lang-btn ${language === "multi" ? "active" : ""}`}
+          onClick={() => setLanguage("multi")}
+          title="Auto / Mixed Language"
+        >
+          🌐 Mixed
+        </button>
+      </div>
+
       <Topics topics={topics} setTopics={setTopics} />
 
-      <nav className="tabs" role="tablist" aria-label="মূল ট্যাবসমূহ">
+      <nav className="tabs" role="tablist" aria-label="Navigation Tabs">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -220,23 +273,22 @@ export default function App() {
           <button
             className={`go ${running ? "stop" : ""}`}
             onClick={handleToggle}
-            aria-label={running ? "ট্রান্সক্রিপশন বন্ধ করুন" : "ট্রান্সক্রিপশন শুরু করুন"}
+            aria-label={running ? "Stop Recording" : "Start Recording"}
           >
             {running ? <Square size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
-            <span>{running ? "বন্ধ করুন" : "শুরু করুন"}</span>
+            <span>{running ? "Stop Recording" : "Start Recording"}</span>
           </button>
           <button
             className="icon-btn"
             onClick={reset}
-            aria-label="সব রেকর্ড মুছুন"
-            title="সব রেকর্ড মুছুন"
+            aria-label="Clear all records"
+            title="Clear all records"
           >
             <Trash2 size={16} />
           </button>
         </div>
-        <p className="consent">ট্রান্সক্রিপশন চালানোর আগে অংশগ্রহণকারীদের জানান।</p>
+        <p className="consent">Ensure meeting participants are aware of active transcription.</p>
       </footer>
     </div>
   );
 }
-

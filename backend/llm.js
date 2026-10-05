@@ -12,17 +12,27 @@ const DEFAULT_QUESTION_KINDS = ["স্পষ্টীকরণ", "গভীর�
 /**
  * System instruction defining the meeting analyst role and JSON schema.
  */
-function buildSystemPrompt(topics, existingQuestions, questionKinds) {
+function buildSystemPrompt(topics, existingQuestions, questionKinds, language = "bn") {
   const allowedKinds = questionKinds?.length ? questionKinds.join(", ") : DEFAULT_QUESTION_KINDS.join(", ");
-  const trackedTopics = topics?.length ? topics.join(", ") : "সাধারণ গুরুত্বপূর্ণ সিদ্ধান্ত";
+  const hasTopics = Array.isArray(topics) && topics.length > 0;
+  const topicInstruction = hasTopics
+    ? `Extract concise, factual notes specifically regarding the tracked topics: [${topics.join(", ")}].`
+    : `Extract concise, factual summary notes of the key points, decisions, and facts discussed.`;
   const priorQuestions = existingQuestions?.length ? existingQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n") : "None yet.";
 
+  let languageDirective = "All generated questions, quotes, and meeting notes MUST be written in natural, fluent BENGALI (বাংলা).";
+  if (language === "en") {
+    languageDirective = "All generated questions, quotes, and meeting notes MUST be written in natural, fluent ENGLISH.";
+  } else if (language === "multi") {
+    languageDirective = "Write questions and notes in the natural language used by the speaker (Bengali or English as appropriate).";
+  }
+
   return `You are a discreet, senior executive meeting intelligence assistant for a professional listening in real-time.
-The meeting is in Bengali (or mixed Bengali-English).
+${languageDirective}
 
 Your goal:
-1. Generate up to 3 sharp, high-value questions the user can ask the speaker.
-2. Extract concise, factual meeting notes ONLY regarding the tracked topics.
+1. Generate up to 3 sharp, high-value questions the user can ask the speaker (e.g. Clarification, Risk, Action item, Deep-dive).
+2. ${topicInstruction}
 
 RULES:
 - Output MUST be valid JSON ONLY matching this exact schema:
@@ -30,12 +40,12 @@ RULES:
   "questions": [
     {
       "kind": "one of: ${allowedKinds}",
-      "question": "The question in the speaker's language (Bengali/English)",
+      "question": "The question according to the language directive",
       "quote": "Short exact or near-exact phrase from the transcript that triggered this"
     }
   ],
   "notes": [
-    "Short, high-signal note specifically about tracked topics in Bengali/English"
+    "Short, high-signal note according to the language directive"
   ]
 }
 
@@ -46,9 +56,7 @@ STRICT CONSTRAINTS:
 - DO NOT repeat or rephrase any previously asked questions:
 Previously asked questions:
 ${priorQuestions}
-- DO NOT ask questions the speaker already answered in the transcript.
-- Notes must be specifically about the tracked topics: [${trackedTopics}]. If no tracked topic was discussed, return empty array [].
-- Write questions and notes in the natural language used by the speaker (primarily Bengali, with natural technical English words as spoken).
+- ${languageDirective}
 - Return PURE JSON with NO markdown code fences, NO introductory text.`;
 }
 
@@ -84,6 +92,17 @@ async function callGemini({ apiKey, model, systemPrompt, userContent }) {
   if (res.status === 503) {
     await new Promise((resolve) => setTimeout(resolve, 1200));
     res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // Handle 404 model migration by falling back to gemini-3.5-flash-lite
+  if (res.status === 404 && model !== "gemini-3.5-flash-lite") {
+    console.warn(`[LLM/Gemini] Model ${model} returned 404. Falling back to gemini-3.5-flash-lite...`);
+    const fallbackEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
+    res = await fetch(fallbackEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -151,7 +170,7 @@ function parseJSONSafely(raw) {
     if (match) {
       try {
         return JSON.parse(match[0]);
-      } catch {}
+      } catch { }
     }
   }
 
@@ -170,6 +189,7 @@ function parseJSONSafely(raw) {
  */
 export async function analyzeTranscript({
   transcriptWindow,
+  language = "bn",
   topics = [],
   existingQuestions = [],
   questionKinds = DEFAULT_QUESTION_KINDS,
@@ -187,10 +207,10 @@ export async function analyzeTranscript({
   }
 
   const provider = (process.env.LLM_PROVIDER || "gemini").toLowerCase();
-  const model = process.env.LLM_MODEL || (provider === "gemini" ? "gemini-3.8-flash" : "gpt-4o-mini");
+  const model = process.env.LLM_MODEL || (provider === "gemini" ? "gemini-3.5-flash-lite" : "gpt-4o-mini");
   const baseUrl = process.env.LLM_BASE_URL;
 
-  const systemPrompt = buildSystemPrompt(topics, existingQuestions, questionKinds);
+  const systemPrompt = buildSystemPrompt(topics, existingQuestions, questionKinds, language);
   const userContent = `Recent Transcript Window:\n"""\n${trimmed}\n"""\n\nGenerate high-signal questions and topic notes according to the instructions.`;
 
   try {
@@ -206,20 +226,20 @@ export async function analyzeTranscript({
     // Validate and sanitize questions
     const validQuestions = Array.isArray(parsed.questions)
       ? parsed.questions
-          .filter((q) => q && typeof q.question === "string" && q.question.trim().length > 0)
-          .slice(0, 3)
-          .map((q) => ({
-            kind: q.kind && questionKinds.includes(q.kind) ? q.kind : questionKinds[0] || "স্পষ্টীকরণ",
-            question: q.question.trim(),
-            quote: typeof q.quote === "string" ? q.quote.trim() : "",
-          }))
+        .filter((q) => q && typeof q.question === "string" && q.question.trim().length > 0)
+        .slice(0, 3)
+        .map((q) => ({
+          kind: q.kind && questionKinds.includes(q.kind) ? q.kind : questionKinds[0] || "স্পষ্টীকরণ",
+          question: q.question.trim(),
+          quote: typeof q.quote === "string" ? q.quote.trim() : "",
+        }))
       : [];
 
     // Validate and sanitize notes
     const validNotes = Array.isArray(parsed.notes)
       ? parsed.notes
-          .filter((n) => typeof n === "string" && n.trim().length > 0)
-          .map((n) => n.trim())
+        .filter((n) => typeof n === "string" && n.trim().length > 0)
+        .map((n) => n.trim())
       : [];
 
     return {
@@ -231,3 +251,71 @@ export async function analyzeTranscript({
     return { questions: [], notes: [] };
   }
 }
+
+/**
+ * Fast real-time transcript translator and Hindi/Devanagari script cleaner.
+ */
+export async function translateOrCleanTranscript({ text, targetLanguage = "bn" }) {
+  if (!text || typeof text !== "string") return text;
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+
+  const hasDevanagari = /[\u0900-\u097F]/.test(trimmed);
+  const hasBengali = /[\u0980-\u09FF]/.test(trimmed);
+  const hasLatin = /[a-zA-Z]/.test(trimmed);
+
+  // If text already matches the expected language and has no unwanted Hindi:
+  if (targetLanguage === "bn" && hasBengali && !hasDevanagari && !hasLatin) {
+    return trimmed;
+  }
+  if (targetLanguage === "en" && hasLatin && !hasBengali && !hasDevanagari) {
+    return trimmed;
+  }
+  if (targetLanguage === "multi" && !hasDevanagari) {
+    return trimmed;
+  }
+
+  const apiKey = process.env.LLM_API_KEY;
+  if (!apiKey) return trimmed;
+
+  const model = process.env.LLM_MODEL || "gemini-3.5-flash-lite";
+
+  let promptTarget = "Bengali (বাংলা)";
+  if (targetLanguage === "en") promptTarget = "English";
+  else if (targetLanguage === "multi") promptTarget = "the original intended language (Bengali or English, never Hindi/Devanagari)";
+
+  const prompt = `You are a real-time transcript translator and cleaner.
+Convert/translate the following speech transcript into natural, accurate ${promptTarget}.
+RULES:
+1. Output ONLY the translated/cleaned text.
+2. Do NOT output any explanations, tags, quotes, or markdown.
+3. If it was Bengali speech mistakenly transcribed in Hindi/Devanagari, convert it to pure Bengali.
+
+Text:
+"${trimmed}"`;
+
+  try {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.1 },
+      }),
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      const output = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (output) {
+        return output.replace(/^["']|["']$/g, "");
+      }
+    }
+  } catch (err) {
+    console.warn("[Translate Error]", err.message);
+  }
+
+  return trimmed;
+}
+

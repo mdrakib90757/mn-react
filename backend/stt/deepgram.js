@@ -27,7 +27,7 @@ export function createSTTStream({ onTranscript, onError, config = {} }) {
   }
 
   const model = process.env.DG_MODEL || "nova-3";
-  const language = config.language || process.env.DG_LANGUAGE || "bn";
+  const language = config.language || process.env.DG_LANGUAGE || "multi";
   const sampleRate = process.env.DG_SAMPLE_RATE || "16000";
   const encoding = process.env.DG_ENCODING || "linear16";
 
@@ -40,7 +40,7 @@ export function createSTTStream({ onTranscript, onError, config = {} }) {
     smart_format: "true",
     punctuate: "true",
     interim_results: "false",
-    endpointing: "300",
+    endpointing: "150",
   });
 
   // Only pass pure ASCII keywords if any, because non-ASCII query params return 400 from Deepgram

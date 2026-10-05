@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { WebSocketServer, WebSocket } from "ws";
 import { createSTTStream } from "./stt/deepgram.js";
-import { analyzeTranscript } from "./llm.js";
+import { analyzeTranscript, translateOrCleanTranscript } from "./llm.js";
 
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 
@@ -20,6 +20,7 @@ wss.on("connection", (clientWs, req) => {
   console.log(`[Backend] Client connected from ${clientIp}`);
 
   let config = {
+    language: "bn",
     topics: ["ডেডলাইন", "বাজেট"],
     questionKinds: ["স্পষ্টীকরণ", "গভীরে", "ঝুঁকি", "অ্যাকশন"],
   };
@@ -34,21 +35,26 @@ wss.on("connection", (clientWs, req) => {
   // Lazily initialize STT stream only when real audio arrives (avoids timeout on health checks)
   function getOrCreateSTTStream() {
     if (sttStream) return sttStream;
-    console.log(`[Backend STT] Opening Deepgram stream for client ${clientIp}...`);
+    console.log(`[Backend STT] Opening Deepgram stream (${config.language || "bn"}) for client ${clientIp}...`);
     sttStream = createSTTStream({
       config,
-      onTranscript: ({ text, isFinal }) => {
+      onTranscript: async ({ text, isFinal }) => {
         if (!text || clientWs.readyState !== WebSocket.OPEN) return;
-        console.log(`[Backend STT] Final transcript: "${text}"`);
+
+        // Clean any Hindi/Devanagari script artifacts and handle cross-translation
+        const targetLang = config.language || "bn";
+        const processedText = await translateOrCleanTranscript({ text, targetLanguage: targetLang });
+
+        console.log(`[Backend STT] Final transcript (${targetLang}): "${processedText}"`);
 
         // Record transcript entry
-        transcriptHistory.push({ ts: Date.now(), text });
+        transcriptHistory.push({ ts: Date.now(), text: processedText });
 
         // Relay to client
         clientWs.send(
           JSON.stringify({
             type: "transcript",
-            text,
+            text: processedText,
           })
         );
 
@@ -94,6 +100,7 @@ wss.on("connection", (clientWs, req) => {
     try {
       const result = await analyzeTranscript({
         transcriptWindow,
+        language: config.language || "bn",
         topics: config.topics,
         existingQuestions: generatedQuestions,
         questionKinds: config.questionKinds,
@@ -161,12 +168,28 @@ wss.on("connection", (clientWs, req) => {
         }
 
         if (payload?.type === "config") {
-          console.log("[Backend] Updated config:", {
-            topics: payload.topics,
-            questionKinds: payload.questionKinds,
-          });
+          const oldLang = config.language;
+          const newLang = payload.language || config.language || process.env.DG_LANGUAGE || "bn";
+
+          config.language = newLang;
           config.topics = Array.isArray(payload.topics) ? payload.topics : config.topics;
           config.questionKinds = Array.isArray(payload.questionKinds) ? payload.questionKinds : config.questionKinds;
+
+          console.log("[Backend] Updated live config:", {
+            language: config.language,
+            topics: config.topics,
+            questionKinds: config.questionKinds,
+          });
+
+          // Hot-restart STT stream if language was dynamically changed during an active session
+          if (sttStream && oldLang !== newLang) {
+            console.log(`[Backend STT] Language switched from "${oldLang}" to "${newLang}". Hot-restarting Deepgram STT stream...`);
+            try {
+              sttStream.close();
+            } catch {}
+            sttStream = null;
+            getOrCreateSTTStream();
+          }
         } else if (payload?.type === "ping") {
           clientWs.send(JSON.stringify({ type: "pong" }));
         }
